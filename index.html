@@ -4,3 +4,27 @@
 <title>html-strings</title>
 <body>
 <script src="html.js"></script>
+<script>
+var root = document.body;
+
+function templateA({title, text}) {
+	return html`
+		<h1>${title}</h1>
+		<p>${text || 'Some text'}</p>
+	`
+}
+
+function button({label}) {
+	return html`<button>${label}</button>`
+}
+
+insert(root, templateA({title: 'Title'}))
+
+insert(root, templateA({
+	title: 'Another title',
+	text: html`Different text with a button: ${button({
+		label: 'Click me!'
+	})}`
+}))
+
+</script>
