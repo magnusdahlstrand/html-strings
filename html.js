@@ -174,12 +174,12 @@ var trailingWhitespace = /\s+$/;
 		throw new Error(`html: invalid signature "${typeof first}"`)
 	}
 
-	function insert(node, pending) {
-		if(!(node instanceof Node)) {
+	function insert(at, pending) {
+		if(!(at instanceof Node)) {
 			throw new Error(`insert requires a Node as first parameter`);
 		}
 		Promise.resolve(pending)
-			.then(fragment => root.append(fragment))
+			.then(fragment => at.append(fragment))
 	}
 
 	html.insert = insert;
