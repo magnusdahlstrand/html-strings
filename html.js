@@ -175,8 +175,11 @@ var trailingWhitespace = /\s+$/;
 	}
 
 	function insert(at, pending) {
-		if(!(at instanceof Node)) {
-			throw new Error(`insert requires a Node as first parameter`);
+		if(!at) {
+			throw new Error(`insert requires a non-null first parameter`);
+		}
+		if(typeof at.append !== 'function') {
+			throw new Error(`insert's first parameter needs an append function`);
 		}
 		Promise.resolve(pending)
 			.then(fragment => at.append(fragment))
