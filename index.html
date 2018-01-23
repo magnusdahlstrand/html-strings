@@ -7,20 +7,18 @@
 <script>
 var root = document.body;
 
-function templateA({title, text}) {
+function template({title, text}) {
 	return html`
 		<h1>${title}</h1>
 		<p>${text || 'Some text'}</p>
 	`
 }
 
-function button({label}) {
-	return html`<button>${label}</button>`
+function button({label, click}) {
+	return html({click})`<button>${label}</button>`
 }
 
-insert(root, templateA({title: 'Title'}))
-
-insert(root, templateA({
+insert(root, template({
 	title: 'Another title',
 	text: html`Different text with a button: ${button({
 		label: 'Click me!'

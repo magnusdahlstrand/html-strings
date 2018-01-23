@@ -5,7 +5,54 @@ var trailingWhitespace = /\s+$/;
 
 (function(module, window) {
 
+	var placeholderContent = 'placeholder';
+
 	var parent = module || window || global;
+	var defaultOpts = {};
+
+	function forEach(list, cb) {
+		return Array.prototype.forEach.call(list, cb);
+	}
+
+	function recurseReplacePlacehoders(node, placeholders) {
+		// Node or node's childen or neither could be a placeholder
+		if(node instanceof Comment && node.textContent === placeholderContent) {
+			// The node itself is a placeholder
+			var placeholder = placeholders.shift();
+			node.replaceWith(placeholder);
+		}
+		else if(node.childNodes) {
+			// A child node could be a placeholder?
+			forEach(
+				node.childNodes,
+				(child) => recurseReplacePlacehoders(child, placeholders)
+			)
+		}
+	}
+
+	var contentHost = document.createElement('div');
+	function contentToFragment(content) {
+		if(!(content instanceof Array)) {
+			throw new Error(`contentToFragment only accepts arrays`);
+		}
+		var placeholders = [];
+		// Replace nodes with placeholder comments
+		contentHost.innerHTML = content
+			.map(piece => {
+				if(piece instanceof Node) {
+					placeholders.push(piece);
+					return `<!--${placeholderContent}-->`;
+				}
+				return piece;
+			})
+			.join('');
+		var fragment = document.createDocumentFragment();
+		// Append all child nodes to fragment
+		fragment.append(...contentHost.childNodes);
+		// Replace placeholder comments recursively
+		recurseReplacePlacehoders(fragment, placeholders);
+		return fragment;
+	}
 
 	function refine(something) {
 		if(something instanceof Promise) {
@@ -13,7 +60,7 @@ var trailingWhitespace = /\s+$/;
 		}
 		if(something instanceof Array) {
 			return Promise.all(something)
-			.then(result => Promise.resolve(result.join('')))
+			.then(result => contentToFragment(result))
 		}
 		if(typeof something === 'function') {
 			return something();
@@ -45,7 +92,7 @@ var trailingWhitespace = /\s+$/;
 		return string;
 	}
 
-	function html(strings, ...keys) {
+	function htmlStringsKeys(strings, keys, opts) {
 		var output = [];
 		for(let [index, string] of Object.entries(strings)) {
 			output.push(
@@ -53,18 +100,23 @@ var trailingWhitespace = /\s+$/;
 				refine(keys[index])
 			);
 		}
+		// TODO: If opts defines click then register any
+		// elements found in the output with the event delegator
 		return refine(output);
 	}
 
-	var contentHost = document.createElement('div');
-	function contentToFragment(content) {
-		contentHost.innerHTML = content;
-		var fragment = document.createDocumentFragment();
-		// Keep reference to elements in case of event binding
-		var childElements = [...contentHost.children];
-		// Append childNodes as they include text nodes
-		fragment.append(...contentHost.childNodes);
-		return fragment;
+	function htmlOpts(opts) {
+		return (strings, ...keys) => htmlStringsKeys(strings, keys, opts);
+	}
+
+	function html(first, ...keys) {
+		if(first instanceof Array) {
+			return htmlStringsKeys(first, keys, defaultOpts);
+		}
+		else if(typeof first === 'object') {
+			return htmlOpts(first);
+		}
+		throw new Error(`html: invalid signature "${typeof first}"`)
 	}
 
 	function insert(node, pending) {
@@ -72,7 +124,6 @@ var trailingWhitespace = /\s+$/;
 			throw new Error(`insert requires a Node as first parameter`);
 		}
 		Promise.resolve(pending)
-			.then(contentToFragment)
 			.then(fragment => root.append(fragment))
 	}
 
