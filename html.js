@@ -7,10 +7,11 @@ var trailingWhitespace = /\s+$/;
 
 	var placeholderContent = 'placeholder';
 
-	var parent = module || window || global;
 	var defaultOpts = {};
 
 	var boundEvents = {};
+
+	var noop = () => {};
 
 	function handleEvent(map, possibleTarget, ev) {
 		// Recurse parent hierarchy and check
@@ -25,19 +26,24 @@ var trailingWhitespace = /\s+$/;
 		return handleEvent(map, possibleTarget.parentNode, ev)
 	}
 
-	function bindEvent(eventName, fragment, handler) {
-		if(!(eventName in boundEvents)) {
-			boundEvents[eventName] = new WeakMap();
-			window.addEventListener(eventName, (ev) => {
-				handleEvent(boundEvents[eventName], ev.target, ev);
-			}, true);
+	var bindEvent = (function() {
+		if(!(window && 'addEventListener' in window)) {
+			return noop;
 		}
-		// Keep track of the elements to allow for future matching
-		forEach(
-			fragment.children,
-			child => boundEvents[eventName].set(child, handler)
-		)
-	}
+		return function bindEvent(eventName, fragment, handler) {
+			if(!(eventName in boundEvents)) {
+				boundEvents[eventName] = new WeakMap();
+				window.addEventListener(eventName, (ev) => {
+					handleEvent(boundEvents[eventName], ev.target, ev);
+				}, true);
+			}
+			// Keep track of the elements to allow for future matching
+			forEach(
+				fragment.children,
+				child => boundEvents[eventName].set(child, handler)
+			)
+		}
+	}())
 
 	function forEach(list, cb) {
 		try {
@@ -64,29 +70,36 @@ var trailingWhitespace = /\s+$/;
 		}
 	}
 
-	var contentHost = document.createElement('div');
-	function contentToFragment(content) {
-		if(!(content instanceof Array)) {
-			throw new Error(`contentToFragment only accepts arrays`);
+	var contentToFragment = (function(document) {
+		if(!document) {
+			return function contentToString(content) {
+				return content.join('');
+			}
 		}
-		var placeholders = [];
-		// Replace nodes with placeholder comments
-		contentHost.innerHTML = content
-			.map(piece => {
-				if(piece instanceof Node) {
-					placeholders.push(piece);
-					return `<!--${placeholderContent}-->`;
-				}
-				return piece;
-			})
-			.join('');
-		var fragment = document.createDocumentFragment();
-		// Append all child nodes to fragment
-		fragment.append(...contentHost.childNodes);
-		// Replace placeholder comments recursively
-		recurseReplacePlacehoders(fragment, placeholders);
-		return fragment;
-	}
+		var contentHost = document.createElement('div');
+		return function contentToFragment(content) {
+			if(!(content instanceof Array)) {
+				throw new Error(`contentToFragment only accepts arrays`);
+			}
+			var placeholders = [];
+			// Replace nodes with placeholder comments
+			contentHost.innerHTML = content
+				.map(piece => {
+					if(piece instanceof Node) {
+						placeholders.push(piece);
+						return `<!--${placeholderContent}-->`;
+					}
+					return piece;
+				})
+				.join('');
+			var fragment = document.createDocumentFragment();
+			// Append all child nodes to fragment
+			fragment.append(...contentHost.childNodes);
+			// Replace placeholder comments recursively
+			recurseReplacePlacehoders(fragment, placeholders);
+			return fragment;
+		}
+	}(typeof document !== 'undefined' && document))
 
 	function refine(something) {
 		if(something instanceof Promise) {
@@ -169,10 +182,18 @@ var trailingWhitespace = /\s+$/;
 			.then(fragment => root.append(fragment))
 	}
 
-	Object.assign(parent, {
-		html,
-		insert,
-	})
+	html.insert = insert;
+	html.html = html;
+
+	if(module) {
+		module.exports = html;
+	}
+	else {
+		Object.assign((window || global), {
+			html,
+		})
+	}
+
 
 }(
 	typeof module !== 'undefined' && module,
