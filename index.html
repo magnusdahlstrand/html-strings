@@ -19,10 +19,24 @@ function button({label, click}) {
 }
 
 insert(root, template({
-	title: 'Another title',
+	title: 'Bind to button directly',
 	text: html`Different text with a button: ${button({
-		label: 'Click me!'
+		label: 'Click me!',
+		click: (ev) => console.log('click!', ev)
 	})}`
+}))
+
+// "Delegate" binding (all events are already delegate bound,
+// but here we bind all direct child elements to the same handler)
+insert(root, template({
+	title: 'Bind to parent',
+	text: html({
+		click: (ev) => console.log('click!', ev)
+	})`
+	Multiple buttons, either of which trigger the sample handler:
+		${button({label: 'Click me'})}
+		${button({label: 'or me!'})}
+	`
 }))
 
 </script>

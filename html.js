@@ -10,8 +10,42 @@ var trailingWhitespace = /\s+$/;
 	var parent = module || window || global;
 	var defaultOpts = {};
 
+	var boundEvents = {};
+
+	function handleEvent(map, possibleTarget, ev) {
+		// Recurse parent hierarchy and check
+		// whether the elements have been bound.
+		// If so, call their handlers.
+		if(!possibleTarget) {
+			return;
+		}
+		if(map.has(possibleTarget)) {
+			return map.get(possibleTarget)(ev);
+		}
+		return handleEvent(map, possibleTarget.parentNode, ev)
+	}
+
+	function bindEvent(eventName, fragment, handler) {
+		if(!(eventName in boundEvents)) {
+			boundEvents[eventName] = new WeakMap();
+			window.addEventListener(eventName, (ev) => {
+				handleEvent(boundEvents[eventName], ev.target, ev);
+			}, true);
+		}
+		// Keep track of the elements to allow for future matching
+		forEach(
+			fragment.children,
+			child => boundEvents[eventName].set(child, handler)
+		)
+	}
+
 	function forEach(list, cb) {
-		return Array.prototype.forEach.call(list, cb);
+		try {
+			return Array.prototype.forEach.call(list, cb);
+		} catch(err) {
+			console.info(list, cb);
+			throw err
+		}
 	}
 
 	function recurseReplacePlacehoders(node, placeholders) {
@@ -93,6 +127,9 @@ var trailingWhitespace = /\s+$/;
 	}
 
 	function htmlStringsKeys(strings, keys, opts) {
+		if(!opts) {
+			throw new Error(`htmlStringsKeys requires opts`);
+		}
 		var output = [];
 		for(let [index, string] of Object.entries(strings)) {
 			output.push(
@@ -100,9 +137,14 @@ var trailingWhitespace = /\s+$/;
 				refine(keys[index])
 			);
 		}
-		// TODO: If opts defines click then register any
-		// elements found in the output with the event delegator
-		return refine(output);
+		return refine(output)
+			.then(fragment => {
+				// Bind click events
+				if(opts.click) {
+					bindEvent('click', fragment, opts.click);
+				}
+				return fragment;
+			});
 	}
 
 	function htmlOpts(opts) {
