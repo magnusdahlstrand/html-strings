@@ -1,31 +1,35 @@
-# html
+# html-strings
 
-Templates are functions returning promises using tagged template literals:
+Prototype javascript templates using template-literals.
 
-```
-var view = ({allowed = true}) => html`<em>All DOM</em> is allowed`
-```
+## Try
 
-The template string is set as innerHTML of an element, and its childNodes are moved over to a document fragment until insertion.
+Clone the repo and load index.html in your browser (doesn't need a server), or run `node test.js`.
 
-Node.append & Node.prepend are used to insert the nodes from the document fragment:
+## Templates
 
-```
-parentRootNode.append(...fragment.children)
-```
-
-The templating function `html` supports passing an object with options in, and if so returns a configured template function:
+Components are represented as functions using tagged template literals:
 
 ```
-html(opts)`<div>template</div>`
+var view = () => html`<em>All DOM</em> is allowed`
 ```
 
-# Events
+The `html` function is a [tag for template strings](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#Tagged_templates), and returns a Promise. The template's expressions can reference Promises or direct values, and when all have resolved the template Promise resolves with a DocumentFragment containing the rendered DOM nodes. If running in an environment where the DOM is not available, the Promise instead resolves with a string.
 
-html can support binding elements on the elements it produces. Instead of react-style "onSomething" binding the html function is passed callbacks for events. Each call to html resoves to a promise which when resolves creates DOM nodes for its content. If the html function has received an options object with parameters for events it will keep references to created elements in a WeakMap which will be used for matching the event target and its parents against a global delegate handler running in the capturing phase.
+The template string is rendered to DOM nodes by being set as the innerHTML of a temporary element, and all resulting nodes (text & DOM nodes) are moved over to a document fragment. The fragment can then be appended or prepended to another node as required:
 
 ```
-html({
+var fragment = view();
+parentNode.append(fragment)
+```
+
+## Events
+
+The `html` function can also be called with an object as its only parameter. When called with an options object it returns a new function to be used as the template tag. This makes it possible to set the context of the template, e.g. for event binding:
+
+```
+var opts = {
     click: (ev) => console.log('click!', ev)
-})`<button>Click me</button>`
+};
+html(opts)`<button>Click me</button>`
 ```
